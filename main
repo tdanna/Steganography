@@ -1,0 +1,183 @@
+import numpy as np
+import matplotlib as plt
+import binascii
+
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
+from PIL import Image, ImagePalette
+
+
+def get_file_path():
+
+    root = tk.Tk()
+    root.withdraw()
+
+    file_path = askopenfilename()
+    root.destroy()
+    return file_path
+
+
+def get_pixels(im):
+    data = im.convert(mode='RGB')
+    pixels = list(data.getdata())
+    return pixels
+
+
+def separate(l, n):
+    for i in  range(0, len(l), n):
+        yield l[i:i+n]
+
+
+def hide_text():
+
+    text = input('Please type the message you would like to hide, then select the image to carry it as prompted: ')
+    file = get_file_path()
+
+    binary = []
+    for c, char in enumerate(text, 1):
+        char = format(ord(char), '08b')
+        if c == 1:
+            char = char + '0'
+            binary.append(char)
+        elif c == len(text):
+            char = char + '0'
+            binary.append(char)
+        else:
+            char = char + '1'
+            binary.append(char)
+
+    image = Image.open(file)
+    width = image.size[0]
+    new_image = image.copy()
+    new_image = new_image.convert('RGB')
+
+    pixels = get_pixels(image)
+    three_pix = list(separate(pixels, 3))
+
+    rgb = []
+    for group in three_pix:
+        value_list = []
+        for pix in group:
+            for value in pix:
+                value_list.append(value)
+        rgb.append(value_list)
+
+    for group in rgb:
+        try:
+            if group[8] % 2 == 0:
+                group[8] += 1
+        except:
+            continue
+
+    new_rgb = []
+    for i in range(len(binary)):
+        new_group = []
+        for x in range(9):
+            if int(binary[i][x]) == 0 and (rgb[i][x] % 2) != 0:
+                new_group.append(rgb[i][x] + 1)
+            elif int(binary[i][x]) == 1 and (rgb[i][x] % 2) == 0:
+                new_group.append(rgb[i][x] + 1)
+            else:
+                new_group.append(rgb[i][x])
+        new_rgb.append(new_group)
+
+    rgb[:len(new_rgb)] = new_rgb
+
+    new_pixels = []
+    for group in rgb:
+        try:
+            a = (group[0], group[1], group[2])
+            new_pixels.append(a)
+            b = (group[3], group[4], group[5])
+            new_pixels.append(b)
+            c = (group[6], group[7], group[8])
+            new_pixels.append(c)
+        except:
+            pass
+
+    x = 0
+    y = 0
+    for pixel in new_pixels:
+        new_image.putpixel((x,y), pixel)
+        if x == (width-1):
+            y += 1
+            x = 0
+        else:
+            x += 1
+
+    new_image.save('encoded image.png')
+
+
+def find_text():
+
+    file = get_file_path()
+    image = Image.open(file)
+    pixels = get_pixels(image)
+
+    three_pix = list(separate(pixels, 3))
+    groups = []
+    for three in three_pix:
+        value_list = []
+        for tuple in three:
+            for value in tuple:
+                value_list.append(value)
+        groups.append(value_list)
+
+    data_limits = []
+    for c, group in enumerate(groups):
+        try:
+            if group[8] % 2 == 0:
+                data_limits.append(c)
+        except:
+            continue
+
+    encrypted_text = groups[data_limits[0]: data_limits[1] + 1]
+
+    binary = []
+    for group in encrypted_text:
+        binary_str = ''
+        for c, value in enumerate(group):
+            if c == 8:
+                continue
+            if value % 2 == 0:
+                binary_str = binary_str + '0'
+            else:
+                binary_str = binary_str + '1'
+        binary.append(binary_str)
+
+    decoded_text = ''
+    for group in binary:
+        char = chr(int(group, 2))
+        decoded_text = decoded_text + char
+    print(decoded_text)
+
+# def hide_image():
+# def find_image():
+
+def main():
+
+    resp = bool(int(input('To hide text or an image, enter 0.  To read a hidden message or image, enter 1')))
+    if not resp:
+        resp2 = bool(int(input('To hide text enter 0.  To hide an image enter 1')))
+        if not resp2:
+            hide_text()
+        elif resp2:
+            hide_image()
+        else:
+            print('Please only input 0 or 1')
+            main()
+    elif resp:
+        resp3 = bool(int(input('To attempt to read hidden text enter 0.  To attempt to read a hidden image enter 1')))
+        if not resp3:
+            find_text()
+        elif resp3:
+            find_image()
+        else:
+            print('Please only input 0 or 1')
+            main()
+    else:
+        print('Please only input 0 or 1')
+        main()
+
+if __name__ == '__main__':
+    main()
